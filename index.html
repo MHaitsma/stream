@@ -59,6 +59,7 @@
       gap: 10px;
       box-shadow: 0 0 25px red;
       border: 1px solid red;
+      z-index: 999;
     }
 
     .offline-message::before {
@@ -104,21 +105,37 @@
   <script>
     const video = document.getElementById('stream');
     const badge = document.getElementById('offlineBadge');
+    let isStreamActive = false;
 
-    let timeout = setTimeout(() => {
-      badge.style.display = 'flex';
-      video.style.display = 'none';
-    }, 10000); // Increased timeout to 10 seconds
-
-    video.addEventListener('loadeddata', () => {
+    function hideOffline() {
       clearTimeout(timeout);
+      isStreamActive = true;
       badge.style.display = 'none';
       video.style.display = 'block';
-    });
+    }
 
-    video.addEventListener('error', () => {
-      badge.style.display = 'flex';
-      video.style.display = 'none';
+    function showOffline() {
+      if (!isStreamActive) {
+        badge.style.display = 'flex';
+        video.style.display = 'none';
+      }
+    }
+
+    const timeout = setTimeout(showOffline, 10000); // wait 10s
+
+    video.addEventListener('canplay', hideOffline);
+    video.addEventListener('playing', hideOffline);
+    video.addEventListener('loadeddata', hideOffline);
+
+    video.addEventListener('error', showOffline);
+
+    // Backup check: after load, if already playing, hide badge
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        if (!video.paused && !video.ended && video.readyState > 2) {
+          hideOffline();
+        }
+      }, 2000);
     });
   </script>
 </body>
