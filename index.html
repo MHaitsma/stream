@@ -3,189 +3,196 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Stream</title>
+  <title>Live Stream with Chat</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     html, body {
       margin: 0;
+      padding: 0;
       height: 100%;
-      background: black;
+      background: #111;
       font-family: Arial, sans-serif;
       color: white;
-      overflow: hidden;
     }
 
-    #container {
+    .container {
       display: flex;
       flex-direction: row;
       height: 100vh;
-      width: 100vw;
     }
 
-    #videoWrapper {
-      position: relative;
+    .video-section {
       flex: 3;
-      display: flex;
-      justify-content: center;
-      align-items: center;
+      position: relative;
       background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    #chatWrapper {
+    .chat-section {
       flex: 1;
-      max-width: 300px;
-      border-left: 1px solid #333;
+      background: #1a1a1a;
+      border-left: 2px solid #333;
     }
 
     video {
       width: 100%;
       height: 100%;
-      object-fit: cover;
       background: black;
+      outline: none;
+      border: none;
     }
 
-    #liveBadge {
-      position: absolute;
-      top: 16px;
-      left: 16px;
-      background: #ff0000;
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-weight: bold;
-      font-size: 14px;
-      display: none;
-      z-index: 10;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
     }
 
     #offlineMessage {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 22px;
-      text-align: center;
       padding: 20px 30px;
-      background: rgba(0, 0, 0, 0.85);
-      border-radius: 12px;
+      border-radius: 16px;
+      background-color: #000;
       color: white;
+      font-size: 1.2em;
       display: none;
-      box-shadow: 0 0 30px red;
-      animation: fadein 1s ease-in-out;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 25px red;
+      border: 1px solid red;
+      z-index: 10;
     }
 
-    @keyframes fadein {
-      from { opacity: 0; }
-      to { opacity: 1; }
+    #offlineMessage::before {
+      content: '🔴';
+      font-size: 1.5em;
     }
 
-    iframe {
+    #goLiveBtn {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      padding: 8px 14px;
+      font-size: 14px;
+      background-color: red;
+      color: white;
       border: none;
-      width: 100%;
-      height: 100%;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 20;
+      display: none;
     }
 
     @media (max-width: 768px) {
-      #container {
+      .container {
         flex-direction: column;
       }
 
-      #chatWrapper {
-        max-width: none;
-        height: 30%;
+      .video-section,
+      .chat-section {
+        height: 50vh;
+        flex: unset;
       }
 
-      #videoWrapper {
-        height: 70%;
+      .chat-section {
+        border-left: none;
+        border-top: 2px solid #333;
       }
     }
   </style>
 </head>
 <body>
-  <div id="container">
-    <div id="videoWrapper">
-      <div id="liveBadge">LIVE</div>
-      <div id="offlineMessage">🔴 Stream is currently offline</div>
-      <video id="video" controls autoplay playsinline muted></video>
+  <div class="container">
+    <div class="video-section">
+      <div id="offlineMessage">Stream is currently offline</div>
+      <button id="goLiveBtn">🔴 Go to Live</button>
+      <video id="video" controls playsinline></video>
     </div>
-    <div id="chatWrapper">
-      <iframe src="https://www6.cbox.ws/box/?boxid=849872&boxtag=l59fs6" allowtransparency="yes" allow="autoplay"></iframe>
+    <div class="chat-section">
+      <iframe src="https://www6.cbox.ws/box/?boxid=849872&boxtag=l59fs6" allowtransparency="yes" allow="autoplay" scrolling="auto"></iframe>
     </div>
   </div>
 
   <script>
     const video = document.getElementById('video');
-    const badge = document.getElementById('liveBadge');
-    const offline = document.getElementById('offlineMessage');
-    const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
-
+    const offlineMsg = document.getElementById('offlineMessage');
+    const goLiveBtn = document.getElementById('goLiveBtn');
+    const videoSrc = 'https://stream.morganhaitsma.com/hls/stream.m3u8';
     let hls;
-    const delaySeconds = 15;
-    let isLiveShown = false;
 
     function showOffline() {
-      if (!isLiveShown) {
-        offline.style.display = 'flex';
-        badge.style.display = 'none';
-        video.style.display = 'none';
-      }
+      offlineMsg.style.display = 'flex';
+      video.style.display = 'none';
+      goLiveBtn.style.display = 'none';
     }
 
-    function showLive() {
-      offline.style.display = 'none';
-      badge.style.display = 'block';
+    function showVideo() {
+      offlineMsg.style.display = 'none';
       video.style.display = 'block';
-      isLiveShown = true;
     }
 
-    function seekToStableBuffer(hlsInstance) {
-      const livePosition = hlsInstance.liveSyncPosition;
-      if (livePosition && !isNaN(livePosition)) {
-        const target = Math.max(0, livePosition - delaySeconds);
-        if (Math.abs(video.currentTime - target) > 2) {
-          video.currentTime = target;
+    function jumpToLive() {
+      if (hls && hls.latency !== undefined) {
+        const live = hls.liveSyncPosition;
+        if (live) {
+          video.currentTime = live - 15;
+          video.play();
+          goLiveBtn.style.display = 'none';
         }
       }
     }
 
-    function setupStream() {
-      if (Hls.isSupported()) {
-        hls = new Hls({ lowLatencyMode: true });
-        hls.loadSource(videoSrc);
-        hls.attachMedia(video);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          showLive();
-          seekToStableBuffer(hls);
-          video.play().catch(() => {});
-        });
-
-        hls.on(Hls.Events.FRAG_BUFFERED, () => {
-          const current = video.currentTime;
-          const live = hls.liveSyncPosition;
-          if (live && current >= live - 1) {
-            seekToStableBuffer(hls);
-          }
-        });
-
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) showOffline();
-        });
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = videoSrc;
-        video.addEventListener('loadedmetadata', () => {
-          showLive();
-        });
-        video.addEventListener('error', showOffline);
-      } else {
-        showOffline();
+    function checkIfBehindLive() {
+      if (hls && hls.latency !== undefined) {
+        const liveEdge = hls.liveSyncPosition;
+        if (liveEdge && video.currentTime < liveEdge - 20) {
+          goLiveBtn.style.display = 'block';
+        } else {
+          goLiveBtn.style.display = 'none';
+        }
       }
     }
 
-    document.addEventListener("DOMContentLoaded", () => {
-      setupStream();
+    if (Hls.isSupported()) {
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true
+      });
+
+      hls.loadSource(videoSrc);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play().then(() => {
+          showVideo();
+          const liveEdge = hls.liveSyncPosition;
+          if (liveEdge) video.currentTime = liveEdge - 15;
+        }).catch(showOffline);
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) showOffline();
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = videoSrc;
+      video.addEventListener('loadedmetadata', () => {
+        video.play().then(() => showVideo()).catch(showOffline);
+      });
+    } else {
+      showOffline();
+    }
+
+    goLiveBtn.addEventListener('click', jumpToLive);
+
+    video.addEventListener('pause', checkIfBehindLive);
+    video.addEventListener('seeked', checkIfBehindLive);
+    video.addEventListener('playing', () => {
+      goLiveBtn.style.display = 'none';
     });
   </script>
 </body>
 </html>
+
