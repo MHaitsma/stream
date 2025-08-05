@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Live Stream with Chat</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
@@ -13,11 +13,13 @@
       font-family: Arial, sans-serif;
       color: white;
     }
+
     .container {
       display: flex;
       height: 100vh;
       flex-direction: row;
     }
+
     .video-section {
       flex: 3;
       position: relative;
@@ -26,21 +28,25 @@
       justify-content: center;
       align-items: center;
     }
+
     .chat-section {
       flex: 1;
       border-left: 2px solid #333;
       background: #1a1a1a;
     }
+
     video {
       width: 100%;
       height: 100%;
       background: black;
     }
+
     iframe {
       width: 100%;
       height: 100%;
       border: none;
     }
+
     #liveBadge {
       position: absolute;
       top: 16px;
@@ -54,6 +60,7 @@
       display: none;
       z-index: 10;
     }
+
     #offlineMessage {
       position: absolute;
       top: 50%;
@@ -67,6 +74,7 @@
       display: block;
       z-index: 10;
     }
+
     #goLiveButton {
       position: absolute;
       bottom: 16px;
@@ -83,17 +91,21 @@
       z-index: 10;
       box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
     }
+
     #goLiveButton:hover {
       background: #e00000;
     }
+
     @media (max-width: 768px) {
       .container {
         flex-direction: column;
       }
+
       .video-section,
       .chat-section {
         height: 50vh;
       }
+
       .chat-section {
         border-left: none;
         border-top: 2px solid #333;
@@ -120,10 +132,8 @@
     const offline = document.getElementById('offlineMessage');
     const goLiveBtn = document.getElementById('goLiveButton');
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
-
     let hls;
     let streamLoaded = false;
-    const delayFromLive = 15; // 15 seconds behind live edge
 
     function showOfflineMessage() {
       offline.style.display = 'block';
@@ -138,48 +148,21 @@
       video.style.display = 'block';
     }
 
-    function updateGoLiveButton() {
-      if (hls?.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - delayFromLive;
-        if (video.currentTime < safeEdge - 3) {
-          goLiveBtn.style.display = 'block';
-        } else {
-          goLiveBtn.style.display = 'none';
-        }
-      }
-    }
-
     goLiveBtn.addEventListener('click', () => {
-      if (hls?.liveSyncPosition) {
-        video.currentTime = hls.liveSyncPosition - delayFromLive;
+      if (hls) {
+        hls.goToLivePosition();
         goLiveBtn.style.display = 'none';
       }
     });
-
-    function clampSeekBar() {
-      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
-      const maxPosition = hls.liveSyncPosition - delayFromLive;
-
-      // Prevent jumping ahead
-      if (video.currentTime > maxPosition) {
-        video.currentTime = maxPosition;
-      }
-
-      // Adjust duration to prevent seeking beyond that point
-      Object.defineProperty(video, 'duration', {
-        get: () => maxPosition,
-        configurable: true
-      });
-    }
 
     function initStream() {
       if (streamLoaded) return;
 
       hls = new Hls({
-        maxBufferLength: Infinity,
-        liveBackBufferLength: Infinity,
         liveSyncDurationCount: 3,
-        lowLatencyMode: false
+        lowLatencyMode: true,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120
       });
 
       hls.loadSource(videoSrc);
@@ -187,11 +170,6 @@
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
-        const safeStart = hls.liveSyncPosition - delayFromLive;
-        if (safeStart > 0) {
-          video.currentTime = safeStart;
-        }
-
         video.play()
           .then(() => showVideoPlayer())
           .catch(() => {
@@ -212,11 +190,9 @@
       });
 
       video.addEventListener('timeupdate', () => {
-        updateGoLiveButton();
-        clampSeekBar();
+        const latency = hls.latency !== undefined ? hls.latency : 0;
+        goLiveBtn.style.display = latency > 10 ? 'block' : 'none';
       });
-
-      video.addEventListener('seeking', clampSeekBar);
     }
 
     async function checkStreamOnline() {
