@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live Stream with Chat</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     html, body {
       margin: 0;
-      padding: 0;
       height: 100%;
       background: #111;
       font-family: Arial, sans-serif;
@@ -15,30 +16,29 @@
 
     .container {
       display: flex;
-      flex-direction: row;
       height: 100vh;
+      flex-direction: row;
     }
 
     .video-section {
       flex: 3;
-      background-color: black;
       position: relative;
+      background: black;
       display: flex;
-      align-items: center;
       justify-content: center;
+      align-items: center;
     }
 
     .chat-section {
       flex: 1;
-      background-color: #1a1a1a;
       border-left: 2px solid #333;
+      background: #1a1a1a;
     }
 
     video {
       width: 100%;
       height: 100%;
-      object-fit: contain;
-      background-color: black;
+      background: black;
     }
 
     iframe {
@@ -47,37 +47,42 @@
       border: none;
     }
 
-    .offline-message {
+    #liveBadge {
       position: absolute;
-      padding: 20px 30px;
-      border-radius: 16px;
-      background-color: #000;
+      top: 16px;
+      left: 16px;
+      background: #ff0000;
       color: white;
-      font-size: 1.2em;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      box-shadow: 0 0 25px red;
-      border: 1px solid red;
-      z-index: 999;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 14px;
+      display: none;
+      z-index: 10;
     }
 
-    .offline-message::before {
-      content: '🔴';
-      font-size: 1.5em;
+    #offlineMessage {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+      display: none;
+      z-index: 10;
     }
 
     @media (max-width: 768px) {
       .container {
         flex-direction: column;
       }
-
       .video-section,
       .chat-section {
         height: 50vh;
-        flex: unset;
       }
-
       .chat-section {
         border-left: none;
         border-top: 2px solid #333;
@@ -88,13 +93,9 @@
 <body>
   <div class="container">
     <div class="video-section">
-      <video id="stream" controls autoplay muted playsinline>
-        <source src="https://stream.morganhaitsma.com/hls/stream.m3u8" type="application/x-mpegURL">
-        Your browser does not support the video tag.
-      </video>
-      <div id="offlineBadge" class="offline-message">
-        Stream is currently offline
-      </div>
+      <div id="liveBadge">LIVE</div>
+      <div id="offlineMessage">🔴 Stream is currently offline</div>
+      <video id="video" controls muted autoplay playsinline></video>
     </div>
 
     <div class="chat-section">
@@ -103,30 +104,51 @@
   </div>
 
   <script>
-    const video = document.getElementById('stream');
-    const badge = document.getElementById('offlineBadge');
+    const video = document.getElementById('video');
+    const badge = document.getElementById('liveBadge');
+    const offline = document.getElementById('offlineMessage');
+    const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
-    // Hide offline badge immediately when stream plays
-    video.addEventListener('playing', () => {
+    function showOfflineMessage() {
+      offline.style.display = 'block';
       badge.style.display = 'none';
-      video.style.display = 'block';
-    });
-
-    // Show badge if stream errors out
-    video.addEventListener('error', () => {
-      badge.style.display = 'flex';
       video.style.display = 'none';
-    });
+    }
 
-    // Force-show badge if stream doesn't start at all
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        if (video.readyState < 3 || video.paused || video.ended) {
-          badge.style.display = 'flex';
-          video.style.display = 'none';
+    function showVideoPlayer() {
+      offline.style.display = 'none';
+      badge.style.display = 'block';
+      video.style.display = 'block';
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+
+      hls.loadSource(videoSrc);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        video.play()
+          .then(() => showVideoPlayer())
+          .catch(() => showOfflineMessage());
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          showOfflineMessage();
         }
-      }, 1000); // Show overlay quickly if not playing
-    });
+      });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Fallback for Safari
+      video.src = videoSrc;
+      video.addEventListener('loadedmetadata', () => {
+        video.play()
+          .then(() => showVideoPlayer())
+          .catch(() => showOfflineMessage());
+      });
+    } else {
+      showOfflineMessage();
+    }
   </script>
 </body>
 </html>
