@@ -71,7 +71,7 @@
       padding: 20px 30px;
       border-radius: 10px;
       box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
-      display: none;
+      display: block;
       z-index: 10;
     }
 
@@ -174,7 +174,6 @@
       if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
 
       const safeEdge = hls.liveSyncPosition - bufferDelay;
-
       if (video.currentTime > safeEdge) {
         video.currentTime = safeEdge;
       }
@@ -207,7 +206,12 @@
 
         video.play()
           .then(() => showVideoPlayer())
-          .catch(() => showOfflineMessage());
+          .catch(() => {
+            streamLoaded = false;
+            hls.destroy();
+            showOfflineMessage();
+            setTimeout(checkStreamOnline, 5000);
+          });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -233,9 +237,11 @@
         if (res.ok) {
           initStream();
         } else {
+          showOfflineMessage();
           setTimeout(checkStreamOnline, 5000);
         }
       } catch {
+        showOfflineMessage();
         setTimeout(checkStreamOnline, 5000);
       }
     }
@@ -248,7 +254,8 @@
           .catch(() => showOfflineMessage());
       });
     } else {
-      checkStreamOnline(); // Begin polling until live stream appears
+      showOfflineMessage();  // Show offline by default
+      checkStreamOnline();   // Start polling for stream
     }
   </script>
 </body>
