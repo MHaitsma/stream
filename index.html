@@ -112,6 +112,15 @@
       }
     }
 
+    function updateDuration() {
+      if (!video.seekable || video.seekable.length === 0) return;
+      const duration = video.seekable.end(video.seekable.length - 1);
+      Object.defineProperty(video, "duration", {
+        get: () => duration,
+        configurable: true
+      });
+    }
+
     function initStream() {
       if (streamLoaded) return;
 
@@ -133,13 +142,7 @@
           });
         });
 
-        hls.on(Hls.Events.LEVEL_UPDATED, (_, data) => {
-          const liveDuration = data.details.totalduration;
-          Object.defineProperty(video, "duration", {
-            get: () => liveDuration,
-            configurable: true
-          });
-        });
+        hls.on(Hls.Events.FRAG_LOADED, updateDuration);
 
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
@@ -149,7 +152,11 @@
           }
         });
 
-        video.addEventListener("timeupdate", clampSeekBar);
+        video.addEventListener("timeupdate", () => {
+          clampSeekBar();
+          updateDuration();
+        });
+
         video.addEventListener("seeking", clampSeekBar);
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = videoSrc;
