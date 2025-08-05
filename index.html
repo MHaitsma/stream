@@ -96,63 +96,35 @@
     const video = document.getElementById("video");
     const badge = document.getElementById("liveBadge");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
-    const bufferDelay = 15;
 
-    let hls;
-    let streamLoaded = false;
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true
+      });
 
-    function showLiveBadge() {
-      badge.style.display = "block";
+      hls.loadSource(videoSrc);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        badge.style.display = "block";
+        video.play().catch(() => {
+          badge.style.display = "none";
+        });
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          hls.destroy();
+          setTimeout(() => location.reload(), 5000);
+        }
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = videoSrc;
+      video.addEventListener("loadedmetadata", () => {
+        video.play().catch(() => {});
+      });
     }
-
-    function clampSeekBar() {
-      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
-      const safeEdge = hls.liveSyncPosition - bufferDelay;
-      if (video.currentTime > safeEdge) {
-        video.currentTime = safeEdge;
-      }
-    }
-
-    function initStream() {
-      if (streamLoaded) return;
-
-      if (Hls.isSupported()) {
-        hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: true
-        });
-
-        hls.loadSource(videoSrc);
-        hls.attachMedia(video);
-
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          streamLoaded = true;
-          showLiveBadge();
-
-          video.play().catch(() => {
-            streamLoaded = false;
-          });
-        });
-
-        hls.on(Hls.Events.ERROR, (event, data) => {
-          if (data.fatal) {
-            streamLoaded = false;
-            hls.destroy();
-            setTimeout(() => location.reload(), 5000);
-          }
-        });
-
-        video.addEventListener("timeupdate", clampSeekBar);
-        video.addEventListener("seeking", clampSeekBar);
-      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-        video.src = videoSrc;
-        video.addEventListener("loadedmetadata", () => {
-          video.play().catch(() => {});
-        });
-      }
-    }
-
-    initStream();
   </script>
 </body>
 </html>
