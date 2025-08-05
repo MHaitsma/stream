@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Stream with Chat</title>
+  <title>Live Stream</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     html, body {
@@ -17,8 +17,8 @@
 
     .container {
       display: flex;
-      height: 100vh;
       flex-direction: row;
+      height: 100vh;
     }
 
     .video-section {
@@ -27,13 +27,19 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background-color: black;
+      background: black;
     }
 
     .chat-section {
       flex: 1;
       background-color: #1a1a1a;
       border-left: 2px solid #333;
+    }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
     }
 
     video {
@@ -44,56 +50,54 @@
       border: none;
     }
 
-    iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
-
     #liveBadge {
       position: absolute;
       top: 16px;
       left: 16px;
-      background: #ff0000;
-      color: #fff;
-      padding: 4px 12px;
-      border-radius: 4px;
-      font-weight: bold;
-      font-size: 14px;
-      font-family: sans-serif;
-      z-index: 10;
-      display: none;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
-    }
-
-    #goLiveButton {
-      position: absolute;
-      bottom: 20px;
-      right: 20px;
-      background: #222;
+      background: red;
       color: white;
-      border: 2px solid white;
-      border-radius: 8px;
-      padding: 10px 16px;
+      padding: 5px 12px;
+      border-radius: 5px;
       font-size: 14px;
-      cursor: pointer;
-      z-index: 10;
+      font-weight: bold;
       display: none;
+      z-index: 10;
     }
 
     #offlineMessage {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 22px;
-      text-align: center;
-      padding: 20px;
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
+      padding: 20px 30px;
+      border-radius: 16px;
+      background-color: #000;
+      color: white;
+      font-size: 1.2em;
       display: none;
-      z-index: 9;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 0 25px red;
+      border: 1px solid red;
+      z-index: 10;
+    }
+
+    #offlineMessage::before {
+      content: '🔴';
+      font-size: 1.5em;
+    }
+
+    #goLiveBtn {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 10;
+      display: none;
     }
 
     @media (max-width: 768px) {
@@ -101,8 +105,7 @@
         flex-direction: column;
       }
 
-      .video-section,
-      .chat-section {
+      .video-section, .chat-section {
         height: 50vh;
         flex: unset;
       }
@@ -112,19 +115,15 @@
         border-top: 2px solid #333;
       }
     }
-
-    video::-webkit-media-controls {
-      filter: invert(1) hue-rotate(180deg);
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="video-section">
+      <video id="video" playsinline autoplay></video>
       <div id="liveBadge">LIVE</div>
-      <div id="offlineMessage">🔴 Stream is currently offline</div>
-      <video id="video" controls muted autoplay playsinline></video>
-      <button id="goLiveButton">Go to Live</button>
+      <div id="offlineMessage">Stream is currently offline</div>
+      <button id="goLiveBtn">Go to Live</button>
     </div>
     <div class="chat-section">
       <iframe src="https://www6.cbox.ws/box/?boxid=849872&boxtag=l59fs6" allowtransparency="yes" allow="autoplay" scrolling="auto"></iframe>
@@ -135,133 +134,70 @@
     const video = document.getElementById('video');
     const badge = document.getElementById('liveBadge');
     const offline = document.getElementById('offlineMessage');
-    const goLiveBtn = document.getElementById('goLiveButton');
+    const goLiveBtn = document.getElementById('goLiveBtn');
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     let hls;
-    const bufferDelay = 15;
-    let streamLoaded = false;
 
-    function showOfflineMessage() {
-      offline.style.display = 'block';
+    function showOffline() {
+      offline.style.display = 'flex';
       badge.style.display = 'none';
-      goLiveBtn.style.display = 'none';
       video.style.display = 'none';
+      goLiveBtn.style.display = 'none';
     }
 
-    function showVideoPlayer() {
+    function showLive() {
       offline.style.display = 'none';
       badge.style.display = 'block';
       video.style.display = 'block';
+      goLiveBtn.style.display = 'block';
     }
 
-    function updateGoLiveButton() {
+    function seekToLiveDelay() {
       if (hls && hls.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - bufferDelay;
-        if (video.currentTime < safeEdge - 3) {
-          goLiveBtn.style.display = 'block';
-        } else {
-          goLiveBtn.style.display = 'none';
+        const liveDelay = 15;
+        const targetTime = hls.liveSyncPosition - liveDelay;
+        if (!isNaN(targetTime)) {
+          video.currentTime = Math.max(0, targetTime);
+          video.play();
         }
+      }
+    }
+
+    function setupStream() {
+      if (Hls.isSupported()) {
+        hls = new Hls({ lowLatencyMode: true });
+        hls.loadSource(videoSrc);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          showLive();
+          seekToLiveDelay();
+        });
+
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) showOffline();
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = videoSrc;
+        video.addEventListener('loadedmetadata', () => {
+          showLive();
+          seekToLiveDelay();
+        });
+        video.addEventListener('error', showOffline);
+      } else {
+        showOffline();
       }
     }
 
     goLiveBtn.addEventListener('click', () => {
-      if (hls && hls.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - bufferDelay;
-        video.currentTime = safeEdge;
-
-        setTimeout(() => {
-          video.play().catch(() => {});
-        }, 200);
-        goLiveBtn.style.display = 'none';
-      }
+      seekToLiveDelay();
+      video.play();
     });
 
-    function clampSeekBar() {
-      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
-
-      const safeEdge = hls.liveSyncPosition - bufferDelay;
-      if (video.currentTime > safeEdge) {
-        video.currentTime = safeEdge;
-      }
-
-      Object.defineProperty(video, 'duration', {
-        get: () => safeEdge,
-        configurable: true
-      });
-    }
-
-    function initStream() {
-      if (streamLoaded) return;
-
-      hls = new Hls({
-        liveSyncDurationCount: 3,
-        enableWorker: true,
-        lowLatencyMode: false
-      });
-
-      hls.loadSource(videoSrc);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        streamLoaded = true;
-
-        const safeStart = hls.liveSyncPosition - bufferDelay;
-        if (safeStart > 0) {
-          video.currentTime = safeStart;
-        }
-
-        setTimeout(() => {
-          video.play().then(showVideoPlayer).catch(() => {
-            showOfflineMessage();
-          });
-        }, 200);
-      });
-
-      hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          streamLoaded = false;
-          showOfflineMessage();
-          hls.destroy();
-          setTimeout(checkStreamOnline, 5000);
-        }
-      });
-
-      video.addEventListener('timeupdate', () => {
-        updateGoLiveButton();
-        clampSeekBar();
-      });
-
-      video.addEventListener('seeking', clampSeekBar);
-    }
-
-    async function checkStreamOnline() {
-      try {
-        const res = await fetch(videoSrc, { method: 'HEAD', cache: 'no-store' });
-        if (res.ok) {
-          initStream();
-        } else {
-          showOfflineMessage();
-          setTimeout(checkStreamOnline, 5000);
-        }
-      } catch {
-        showOfflineMessage();
-        setTimeout(checkStreamOnline, 5000);
-      }
-    }
-
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = videoSrc;
-      video.addEventListener('loadedmetadata', () => {
-        video.play()
-          .then(() => showVideoPlayer())
-          .catch(() => showOfflineMessage());
-      });
-    } else {
-      showOfflineMessage();
-      checkStreamOnline();
-    }
+    document.addEventListener("DOMContentLoaded", () => {
+      setupStream();
+    });
   </script>
 </body>
 </html>
