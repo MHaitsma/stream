@@ -135,20 +135,18 @@
     }
 
     function jumpToLive() {
-      if (hls && hls.latency !== undefined) {
+      if (hls && hls.liveSyncPosition) {
         const live = hls.liveSyncPosition;
-        if (live) {
-          video.currentTime = live - 15;
-          video.play();
-          goLiveBtn.style.display = 'none';
-        }
+        video.currentTime = live - 15;
+        video.play();
+        goLiveBtn.style.display = 'none';
       }
     }
 
     function checkIfBehindLive() {
-      if (hls && hls.latency !== undefined) {
+      if (hls && hls.liveSyncPosition) {
         const liveEdge = hls.liveSyncPosition;
-        if (liveEdge && video.currentTime < liveEdge - 20) {
+        if (video.currentTime < liveEdge - 20) {
           goLiveBtn.style.display = 'block';
         } else {
           goLiveBtn.style.display = 'none';
@@ -156,7 +154,7 @@
       }
     }
 
-    if (Hls.isSupported()) {
+    function setupHLS() {
       hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true
@@ -166,32 +164,43 @@
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().then(() => {
+        const liveEdge = hls.liveSyncPosition;
+        if (liveEdge) video.currentTime = liveEdge - 15;
+        video.muted = false;
+        video.play();
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, (_, data) => {
+        if (data.details.live) {
           showVideo();
-          const liveEdge = hls.liveSyncPosition;
-          if (liveEdge) video.currentTime = liveEdge - 15;
-        }).catch(showOffline);
+        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) showOffline();
+        if (data.fatal) {
+          showOffline();
+        }
       });
+    }
+
+    // Fallback for iOS native
+    if (Hls.isSupported()) {
+      setupHLS();
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = videoSrc;
       video.addEventListener('loadedmetadata', () => {
-        video.play().then(() => showVideo()).catch(showOffline);
+        video.play();
+        showVideo();
       });
+      video.addEventListener('error', showOffline);
     } else {
       showOffline();
     }
 
     goLiveBtn.addEventListener('click', jumpToLive);
-
     video.addEventListener('pause', checkIfBehindLive);
     video.addEventListener('seeked', checkIfBehindLive);
-    video.addEventListener('playing', () => {
-      goLiveBtn.style.display = 'none';
-    });
+    video.addEventListener('playing', () => goLiveBtn.style.display = 'none');
   </script>
 </body>
 </html>
