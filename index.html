@@ -135,7 +135,7 @@
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     let hls;
-    const bufferDelay = 15;
+    const bufferDelay = 10;
     let streamLoaded = false;
 
     function showOfflineMessage() {
@@ -152,9 +152,9 @@
     }
 
     function updateGoLiveButton() {
-      if (hls && hls.latencyController?.targetLatency) {
-        const liveEdge = hls.latencyController.targetLatency;
-        if (video.currentTime < liveEdge - bufferDelay - 3) {
+      if (hls && hls.liveSyncPosition) {
+        const safeEdge = hls.liveSyncPosition - bufferDelay;
+        if (video.currentTime < safeEdge - 3) {
           goLiveBtn.style.display = 'block';
         } else {
           goLiveBtn.style.display = 'none';
@@ -163,25 +163,23 @@
     }
 
     goLiveBtn.addEventListener('click', () => {
-      if (hls && hls.latencyController?.targetLatency) {
-        const safeEdge = hls.latencyController.targetLatency - bufferDelay;
+      if (hls && hls.liveSyncPosition) {
+        const safeEdge = hls.liveSyncPosition - bufferDelay;
         video.currentTime = safeEdge;
         goLiveBtn.style.display = 'none';
       }
     });
 
     function clampSeekBar() {
-      if (!video.seekable || video.seekable.length === 0 || !hls?.latencyController?.targetLatency) return;
+      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
+      const safeEdge = hls.liveSyncPosition - bufferDelay;
 
-      const liveEdge = hls.latencyController.targetLatency;
-      const maxSeek = liveEdge - bufferDelay;
-
-      if (video.currentTime > maxSeek) {
-        video.currentTime = maxSeek;
+      if (video.currentTime > safeEdge + 1) {
+        video.currentTime = safeEdge;
       }
 
       Object.defineProperty(video, 'duration', {
-        get: () => maxSeek,
+        get: () => safeEdge,
         configurable: true
       });
     }
@@ -190,10 +188,9 @@
       if (streamLoaded) return;
 
       hls = new Hls({
-        liveSyncDuration: bufferDelay,
-        liveMaxLatencyDuration: bufferDelay + 5,
+        liveSyncDurationCount: 3,
         enableWorker: true,
-        lowLatencyMode: true
+        lowLatencyMode: false
       });
 
       hls.loadSource(videoSrc);
@@ -202,7 +199,7 @@
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
 
-        const safeStart = hls.latencyController?.targetLatency - bufferDelay;
+        const safeStart = hls.liveSyncPosition - bufferDelay;
         if (safeStart > 0) {
           video.currentTime = safeStart;
         }
