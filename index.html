@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Live Stream with Chat</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
@@ -119,8 +119,9 @@
       <div id="liveBadge">LIVE</div>
       <div id="offlineMessage">🔴 Stream is currently offline</div>
       <button id="goLiveButton">Go to Live</button>
-      <video id="video" controls muted autoplay playsinline></video>
+      <video id="video" controls autoplay muted playsinline></video>
     </div>
+
     <div class="chat-section">
       <iframe src="https://www6.cbox.ws/box/?boxid=849872&boxtag=l59fs6" allowtransparency="yes" allow="autoplay" scrolling="auto"></iframe>
     </div>
@@ -132,6 +133,8 @@
     const offline = document.getElementById('offlineMessage');
     const goLiveBtn = document.getElementById('goLiveButton');
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
+
+    const bufferDelay = 15; // 15 seconds behind live
     let hls;
     let streamLoaded = false;
 
@@ -148,21 +151,42 @@
       video.style.display = 'block';
     }
 
+    function updateGoLiveButton() {
+      if (hls?.liveSyncPosition) {
+        const safeEdge = hls.liveSyncPosition - bufferDelay;
+        if (video.currentTime < safeEdge - 2) {
+          goLiveBtn.style.display = 'block';
+        } else {
+          goLiveBtn.style.display = 'none';
+        }
+      }
+    }
+
     goLiveBtn.addEventListener('click', () => {
-      if (hls) {
-        hls.goToLivePosition();
+      if (hls?.liveSyncPosition) {
+        const safeEdge = hls.liveSyncPosition - bufferDelay;
+        video.currentTime = safeEdge;
         goLiveBtn.style.display = 'none';
       }
     });
+
+    function clampSeekBar() {
+      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
+      const safeEdge = hls.liveSyncPosition - bufferDelay;
+      if (video.currentTime > safeEdge) {
+        video.currentTime = safeEdge;
+      }
+    }
 
     function initStream() {
       if (streamLoaded) return;
 
       hls = new Hls({
-        liveSyncDurationCount: 3,
-        lowLatencyMode: true,
-        maxBufferLength: 60,
-        maxMaxBufferLength: 120
+        liveSyncDuration: Infinity,
+        liveMaxLatencyDuration: Infinity,
+        maxLiveSyncPlaybackRate: 1.0,
+        lowLatencyMode: false,
+        enableWorker: true
       });
 
       hls.loadSource(videoSrc);
@@ -170,29 +194,38 @@
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
-        video.play()
-          .then(() => showVideoPlayer())
-          .catch(() => {
-            streamLoaded = false;
-            hls.destroy();
-            showOfflineMessage();
-            setTimeout(checkStreamOnline, 5000);
-          });
+        const safeStart = hls.liveSyncPosition - bufferDelay;
+        if (safeStart > 0) video.currentTime = safeStart;
+
+        Object.defineProperty(video, 'duration', {
+          get: () => Infinity,
+          configurable: true
+        });
+
+        video.play().then(() => showVideoPlayer())
+        .catch(() => {
+          hls.destroy();
+          streamLoaded = false;
+          showOfflineMessage();
+          setTimeout(checkStreamOnline, 5000);
+        });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
           streamLoaded = false;
-          hls.destroy();
           showOfflineMessage();
+          hls.destroy();
           setTimeout(checkStreamOnline, 5000);
         }
       });
 
       video.addEventListener('timeupdate', () => {
-        const latency = hls.latency !== undefined ? hls.latency : 0;
-        goLiveBtn.style.display = latency > 10 ? 'block' : 'none';
+        clampSeekBar();
+        updateGoLiveButton();
       });
+
+      video.addEventListener('seeking', clampSeekBar);
     }
 
     async function checkStreamOnline() {
@@ -210,17 +243,9 @@
       }
     }
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = videoSrc;
-      video.addEventListener('loadedmetadata', () => {
-        video.play()
-          .then(() => showVideoPlayer())
-          .catch(() => showOfflineMessage());
-      });
-    } else {
-      showOfflineMessage();
-      checkStreamOnline();
-    }
+    // Kick off
+    showOfflineMessage();
+    checkStreamOnline();
   </script>
 </body>
 </html>
