@@ -135,6 +135,7 @@
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     let hls;
+    const bufferDelay = 15; // delay 15s behind live edge
 
     function showOfflineMessage() {
       offline.style.display = 'block';
@@ -150,19 +151,40 @@
     }
 
     function updateGoLiveButton() {
-      if (hls && hls.liveSyncPosition && video.currentTime < hls.liveSyncPosition - 3) {
-        goLiveBtn.style.display = 'block';
-      } else {
-        goLiveBtn.style.display = 'none';
+      if (hls && hls.liveSyncPosition) {
+        const safeEdge = hls.liveSyncPosition - bufferDelay;
+        if (video.currentTime < safeEdge - 3) {
+          goLiveBtn.style.display = 'block';
+        } else {
+          goLiveBtn.style.display = 'none';
+        }
       }
     }
 
     goLiveBtn.addEventListener('click', () => {
       if (hls && hls.liveSyncPosition) {
-        video.currentTime = hls.liveSyncPosition;
+        const safeEdge = hls.liveSyncPosition - bufferDelay;
+        video.currentTime = safeEdge;
         goLiveBtn.style.display = 'none';
       }
     });
+
+    function clampSeekBar() {
+      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
+
+      const safeEdge = hls.liveSyncPosition - bufferDelay;
+
+      // Prevent seeking into final 15 seconds
+      if (video.currentTime > safeEdge) {
+        video.currentTime = safeEdge;
+      }
+
+      // Clamp displayed duration so scrub bar can't go too far
+      Object.defineProperty(video, 'duration', {
+        get: () => safeEdge,
+        configurable: true
+      });
+    }
 
     if (Hls.isSupported()) {
       hls = new Hls({
@@ -175,9 +197,9 @@
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        const liveLatency = hls.liveSyncPosition;
-        if (liveLatency) {
-          video.currentTime = liveLatency;
+        const startTime = hls.liveSyncPosition - bufferDelay;
+        if (startTime > 0) {
+          video.currentTime = startTime;
         }
 
         video.play()
@@ -191,8 +213,14 @@
         }
       });
 
-      video.addEventListener('timeupdate', updateGoLiveButton);
+      video.addEventListener('timeupdate', () => {
+        updateGoLiveButton();
+        clampSeekBar();
+      });
+
+      video.addEventListener('seeking', clampSeekBar);
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari native fallback
       video.src = videoSrc;
       video.addEventListener('loadedmetadata', () => {
         video.play()
