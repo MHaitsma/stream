@@ -57,7 +57,7 @@
       background-color: #000;
       color: white;
       font-size: 1.2em;
-      display: none;
+      display: flex;
       align-items: center;
       gap: 10px;
       box-shadow: 0 0 25px red;
@@ -109,7 +109,7 @@
     <div class="video-section">
       <div id="offlineMessage">Stream is currently offline</div>
       <button id="goLiveBtn">🔴 Go to Live</button>
-      <video id="video" controls playsinline></video>
+      <video id="video" controls playsinline autoplay muted></video>
     </div>
     <div class="chat-section">
       <iframe src="https://www6.cbox.ws/box/?boxid=849872&boxtag=l59fs6" allowtransparency="yes" allow="autoplay" scrolling="auto"></iframe>
@@ -136,8 +136,7 @@
 
     function jumpToLive() {
       if (hls && hls.liveSyncPosition) {
-        const live = hls.liveSyncPosition;
-        video.currentTime = live - 15;
+        video.currentTime = hls.liveSyncPosition - 15;
         video.play();
         goLiveBtn.style.display = 'none';
       }
@@ -163,17 +162,12 @@
       hls.loadSource(videoSrc);
       hls.attachMedia(video);
 
+      // Play from slightly behind live
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        const liveEdge = hls.liveSyncPosition;
-        if (liveEdge) video.currentTime = liveEdge - 15;
+        const live = hls.liveSyncPosition;
+        if (live) video.currentTime = live - 15;
         video.muted = false;
         video.play();
-      });
-
-      hls.on(Hls.Events.LEVEL_LOADED, (_, data) => {
-        if (data.details.live) {
-          showVideo();
-        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -183,25 +177,24 @@
       });
     }
 
-    // Fallback for iOS native
     if (Hls.isSupported()) {
       setupHLS();
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = videoSrc;
       video.addEventListener('loadedmetadata', () => {
         video.play();
-        showVideo();
       });
-      video.addEventListener('error', showOffline);
     } else {
       showOffline();
     }
 
+    // Show live when it's ready to render
+    video.addEventListener('canplay', showVideo);
+    video.addEventListener('playing', showVideo);
+
     goLiveBtn.addEventListener('click', jumpToLive);
     video.addEventListener('pause', checkIfBehindLive);
     video.addEventListener('seeked', checkIfBehindLive);
-    video.addEventListener('playing', () => goLiveBtn.style.display = 'none');
   </script>
 </body>
 </html>
-
