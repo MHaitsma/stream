@@ -121,6 +121,7 @@
     const bufferDelay = 15;
 
     let hls;
+    let streamLoaded = false;
 
     function showLiveBadge() {
       badge.style.display = "block";
@@ -153,6 +154,8 @@
     }
 
     function initStream() {
+      if (streamLoaded) return;
+
       if (Hls.isSupported()) {
         hls = new Hls({
           enableWorker: true,
@@ -163,12 +166,17 @@
         hls.attachMedia(video);
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          streamLoaded = true;
           showLiveBadge();
-          video.play().catch(() => {});
+
+          video.play().catch(() => {
+            streamLoaded = false;
+          });
         });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
+            streamLoaded = false;
             hls.destroy();
             setTimeout(() => location.reload(), 5000);
           }
