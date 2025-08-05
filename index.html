@@ -61,20 +61,6 @@
       z-index: 10;
     }
 
-    #offlineMessage {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-size: 20px;
-      background: rgba(0, 0, 0, 0.8);
-      padding: 20px 30px;
-      border-radius: 10px;
-      box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
-      display: block;
-      z-index: 10;
-    }
-
     #goLiveButton {
       position: absolute;
       bottom: 16px;
@@ -117,7 +103,6 @@
   <div class="container">
     <div class="video-section">
       <div id="liveBadge">LIVE</div>
-      <div id="offlineMessage">🔴 Stream is currently offline</div>
       <button id="goLiveButton">Go to Live</button>
       <video id="video" controls autoplay muted playsinline></video>
     </div>
@@ -130,26 +115,12 @@
   <script>
     const video = document.getElementById('video');
     const badge = document.getElementById('liveBadge');
-    const offline = document.getElementById('offlineMessage');
     const goLiveBtn = document.getElementById('goLiveButton');
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     const bufferDelay = 15;
     let hls;
     let streamLoaded = false;
-
-    function showOfflineMessage() {
-      offline.style.display = 'block';
-      badge.style.display = 'none';
-      goLiveBtn.style.display = 'none';
-      video.style.display = 'none';
-    }
-
-    function showVideoPlayer() {
-      offline.style.display = 'none';
-      badge.style.display = 'block';
-      video.style.display = 'block';
-    }
 
     function updateGoLiveButton() {
       if (hls?.liveSyncPosition) {
@@ -204,24 +175,19 @@
           configurable: true
         });
 
-        video.play().then(() => showVideoPlayer()).catch(() => {
+        video.play().then(() => {
+          badge.style.display = 'block';
+          video.style.display = 'block';
+        }).catch(() => {
           hls.destroy();
           streamLoaded = false;
-          showOfflineMessage();
           setTimeout(checkStreamOnline, 5000);
         });
-      });
-
-      hls.on(Hls.Events.LEVEL_LOADED, (_, data) => {
-        if (data.details.live && !streamLoaded) {
-          initStream();
-        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
           streamLoaded = false;
-          showOfflineMessage();
           hls.destroy();
           setTimeout(checkStreamOnline, 5000);
         }
@@ -241,16 +207,13 @@
         if (res.ok) {
           initStream();
         } else {
-          showOfflineMessage();
           setTimeout(checkStreamOnline, 5000);
         }
       } catch {
-        showOfflineMessage();
         setTimeout(checkStreamOnline, 5000);
       }
     }
 
-    showOfflineMessage();
     checkStreamOnline();
   </script>
 </body>
