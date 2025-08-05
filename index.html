@@ -152,9 +152,9 @@
     }
 
     function updateGoLiveButton() {
-      if (hls && hls.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - bufferDelay;
-        if (video.currentTime < safeEdge - 3) {
+      if (hls && hls.latencyController?.targetLatency) {
+        const liveEdge = hls.latencyController.targetLatency;
+        if (video.currentTime < liveEdge - bufferDelay - 3) {
           goLiveBtn.style.display = 'block';
         } else {
           goLiveBtn.style.display = 'none';
@@ -163,23 +163,25 @@
     }
 
     goLiveBtn.addEventListener('click', () => {
-      if (hls && hls.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - bufferDelay;
+      if (hls && hls.latencyController?.targetLatency) {
+        const safeEdge = hls.latencyController.targetLatency - bufferDelay;
         video.currentTime = safeEdge;
         goLiveBtn.style.display = 'none';
       }
     });
 
     function clampSeekBar() {
-      if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
+      if (!video.seekable || video.seekable.length === 0 || !hls?.latencyController?.targetLatency) return;
 
-      const safeEdge = hls.liveSyncPosition - bufferDelay;
-      if (video.currentTime > safeEdge) {
-        video.currentTime = safeEdge;
+      const liveEdge = hls.latencyController.targetLatency;
+      const maxSeek = liveEdge - bufferDelay;
+
+      if (video.currentTime > maxSeek) {
+        video.currentTime = maxSeek;
       }
 
       Object.defineProperty(video, 'duration', {
-        get: () => safeEdge,
+        get: () => maxSeek,
         configurable: true
       });
     }
@@ -188,9 +190,10 @@
       if (streamLoaded) return;
 
       hls = new Hls({
-        liveSyncDurationCount: 3,
+        liveSyncDuration: bufferDelay,
+        liveMaxLatencyDuration: bufferDelay + 5,
         enableWorker: true,
-        lowLatencyMode: false
+        lowLatencyMode: true
       });
 
       hls.loadSource(videoSrc);
@@ -199,7 +202,7 @@
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
 
-        const safeStart = hls.liveSyncPosition - bufferDelay;
+        const safeStart = hls.latencyController?.targetLatency - bufferDelay;
         if (safeStart > 0) {
           video.currentTime = safeStart;
         }
@@ -254,8 +257,8 @@
           .catch(() => showOfflineMessage());
       });
     } else {
-      showOfflineMessage();  // Show offline by default
-      checkStreamOnline();   // Start polling for stream
+      showOfflineMessage();
+      checkStreamOnline();
     }
   </script>
 </body>
