@@ -92,7 +92,7 @@
         <source src="https://stream.morganhaitsma.com/hls/stream.m3u8" type="application/x-mpegURL">
         Your browser does not support the video tag.
       </video>
-      <div id="offlineBadge" class="offline-message" style="display:none;">
+      <div id="offlineBadge" class="offline-message">
         Stream is currently offline
       </div>
     </div>
@@ -105,37 +105,27 @@
   <script>
     const video = document.getElementById('stream');
     const badge = document.getElementById('offlineBadge');
-    let isStreamActive = false;
 
-    function hideOffline() {
-      clearTimeout(timeout);
-      isStreamActive = true;
+    // Hide offline badge immediately when stream plays
+    video.addEventListener('playing', () => {
       badge.style.display = 'none';
       video.style.display = 'block';
-    }
+    });
 
-    function showOffline() {
-      if (!isStreamActive) {
-        badge.style.display = 'flex';
-        video.style.display = 'none';
-      }
-    }
+    // Show badge if stream errors out
+    video.addEventListener('error', () => {
+      badge.style.display = 'flex';
+      video.style.display = 'none';
+    });
 
-    const timeout = setTimeout(showOffline, 10000); // wait 10s
-
-    video.addEventListener('canplay', hideOffline);
-    video.addEventListener('playing', hideOffline);
-    video.addEventListener('loadeddata', hideOffline);
-
-    video.addEventListener('error', showOffline);
-
-    // Backup check: after load, if already playing, hide badge
+    // Force-show badge if stream doesn't start at all
     window.addEventListener('load', () => {
       setTimeout(() => {
-        if (!video.paused && !video.ended && video.readyState > 2) {
-          hideOffline();
+        if (video.readyState < 3 || video.paused || video.ended) {
+          badge.style.display = 'flex';
+          video.style.display = 'none';
         }
-      }, 2000);
+      }, 1000); // Show overlay quickly if not playing
     });
   </script>
 </body>
