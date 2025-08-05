@@ -166,7 +166,6 @@
       if (hls && hls.liveSyncPosition) {
         const safeEdge = hls.liveSyncPosition - bufferDelay;
         video.currentTime = safeEdge;
-        video.play();
         goLiveBtn.style.display = 'none';
       }
     });
@@ -255,8 +254,8 @@
           .catch(() => showOfflineMessage());
       });
     } else {
-      showOfflineMessage();
-      checkStreamOnline();
+      showOfflineMessage();  // Show offline by default
+      checkStreamOnline();   // Start polling for stream
     }
   </script>
 </body>
