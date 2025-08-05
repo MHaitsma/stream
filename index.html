@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Live Stream</title>
@@ -7,7 +7,7 @@
   <style>
     body {
       margin: 0;
-      background: #000;
+      background: black;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -16,15 +16,16 @@
     video {
       width: 100%;
       max-width: 960px;
-      background: #000;
+      height: auto;
     }
   </style>
 </head>
 <body>
-  <video id="video" controls autoplay muted></video>
+  <video id="video" controls autoplay></video>
+
   <script>
     const video = document.getElementById('video');
-    const videoSrc = 'http://stream.morganhaitsma.com:8080/hls/stream.m3u8';
+    const videoSrc = 'https://stream.morganhaitsma.com/hls/stream.m3u8';
 
     if (Hls.isSupported()) {
       const hls = new Hls();
@@ -32,8 +33,6 @@
       hls.attachMedia(video);
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = videoSrc;
-    } else {
-      video.outerHTML = "<p style='color:white;text-align:center'>Your browser does not support HLS playback.</p>";
     }
   </script>
 </body>
