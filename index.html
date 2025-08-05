@@ -135,7 +135,7 @@
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     let hls;
-    const bufferDelay = 10;
+    const bufferDelay = 15;
     let streamLoaded = false;
 
     function showOfflineMessage() {
@@ -167,14 +167,15 @@
         const safeEdge = hls.liveSyncPosition - bufferDelay;
         video.currentTime = safeEdge;
         goLiveBtn.style.display = 'none';
+        video.play();
       }
     });
 
     function clampSeekBar() {
       if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
-      const safeEdge = hls.liveSyncPosition - bufferDelay;
 
-      if (video.currentTime > safeEdge + 1) {
+      const safeEdge = hls.liveSyncPosition - bufferDelay;
+      if (video.currentTime > safeEdge) {
         video.currentTime = safeEdge;
       }
 
@@ -188,6 +189,9 @@
       if (streamLoaded) return;
 
       hls = new Hls({
+        maxBufferLength: 600,
+        maxMaxBufferLength: 1200,
+        liveBackBufferLength: 600,
         liveSyncDurationCount: 3,
         enableWorker: true,
         lowLatencyMode: false
@@ -204,13 +208,14 @@
           video.currentTime = safeStart;
         }
 
-        // ✅ Always show video player no matter what
-        showVideoPlayer();
-
-        video.muted = true;
-        video.play().catch(() => {
-          // Do nothing if autoplay fails
-        });
+        video.play()
+          .then(() => showVideoPlayer())
+          .catch(() => {
+            streamLoaded = false;
+            hls.destroy();
+            showOfflineMessage();
+            setTimeout(checkStreamOnline, 5000);
+          });
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
