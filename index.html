@@ -135,7 +135,8 @@
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     let hls;
-    const bufferDelay = 15; // delay 15s behind live edge
+    const bufferDelay = 15;
+    let streamLoaded = false;
 
     function showOfflineMessage() {
       offline.style.display = 'block';
@@ -174,19 +175,19 @@
 
       const safeEdge = hls.liveSyncPosition - bufferDelay;
 
-      // Prevent seeking into final 15 seconds
       if (video.currentTime > safeEdge) {
         video.currentTime = safeEdge;
       }
 
-      // Clamp displayed duration so scrub bar can't go too far
       Object.defineProperty(video, 'duration', {
         get: () => safeEdge,
         configurable: true
       });
     }
 
-    if (Hls.isSupported()) {
+    function initStream() {
+      if (streamLoaded) return;
+
       hls = new Hls({
         liveSyncDurationCount: 3,
         enableWorker: true,
@@ -197,9 +198,11 @@
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        const startTime = hls.liveSyncPosition - bufferDelay;
-        if (startTime > 0) {
-          video.currentTime = startTime;
+        streamLoaded = true;
+
+        const safeStart = hls.liveSyncPosition - bufferDelay;
+        if (safeStart > 0) {
+          video.currentTime = safeStart;
         }
 
         video.play()
@@ -209,7 +212,10 @@
 
       hls.on(Hls.Events.ERROR, (event, data) => {
         if (data.fatal) {
+          streamLoaded = false;
           showOfflineMessage();
+          hls.destroy();
+          setTimeout(checkStreamOnline, 5000);
         }
       });
 
@@ -219,8 +225,22 @@
       });
 
       video.addEventListener('seeking', clampSeekBar);
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari native fallback
+    }
+
+    async function checkStreamOnline() {
+      try {
+        const res = await fetch(videoSrc, { method: 'HEAD', cache: 'no-store' });
+        if (res.ok) {
+          initStream();
+        } else {
+          setTimeout(checkStreamOnline, 5000);
+        }
+      } catch {
+        setTimeout(checkStreamOnline, 5000);
+      }
+    }
+
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = videoSrc;
       video.addEventListener('loadedmetadata', () => {
         video.play()
@@ -228,7 +248,7 @@
           .catch(() => showOfflineMessage());
       });
     } else {
-      showOfflineMessage();
+      checkStreamOnline(); // Begin polling until live stream appears
     }
   </script>
 </body>
