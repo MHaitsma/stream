@@ -173,11 +173,12 @@
 
     function clampSeekBar() {
       if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
+
       const safeEdge = hls.liveSyncPosition - bufferDelay;
-      if (video.currentTime > safeEdge + 2) {
+      if (video.currentTime > safeEdge) {
         video.currentTime = safeEdge;
-        video.play();
       }
+
       Object.defineProperty(video, 'duration', {
         get: () => safeEdge,
         configurable: true
@@ -198,6 +199,7 @@
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
+
         const safeStart = hls.liveSyncPosition - bufferDelay;
         if (safeStart > 0) {
           video.currentTime = safeStart;
@@ -248,7 +250,9 @@
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = videoSrc;
       video.addEventListener('loadedmetadata', () => {
-        video.play().then(() => showVideoPlayer()).catch(() => showOfflineMessage());
+        video.play()
+          .then(() => showVideoPlayer())
+          .catch(() => showOfflineMessage());
       });
     } else {
       showOfflineMessage();
