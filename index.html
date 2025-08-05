@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Live Stream with Chat</title>
+  <title>Live Stream</title>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
   <style>
     html, body {
       margin: 0;
+      padding: 0;
       height: 100%;
       background: #111;
       font-family: Arial, sans-serif;
@@ -106,18 +107,16 @@
       <button id="goLiveButton">Go to Live</button>
       <video id="video" controls autoplay muted playsinline></video>
     </div>
-
     <div class="chat-section">
       <iframe src="https://www6.cbox.ws/box/?boxid=849872&boxtag=l59fs6" allowtransparency="yes" allow="autoplay" scrolling="auto"></iframe>
     </div>
   </div>
 
   <script>
-    const video = document.getElementById('video');
-    const badge = document.getElementById('liveBadge');
-    const goLiveBtn = document.getElementById('goLiveButton');
+    const video = document.getElementById("video");
+    const badge = document.getElementById("liveBadge");
+    const goLiveBtn = document.getElementById("goLiveButton");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
-
     const bufferDelay = 15;
     let hls;
     let streamLoaded = false;
@@ -125,20 +124,18 @@
     function updateGoLiveButton() {
       if (hls?.liveSyncPosition) {
         const safeEdge = hls.liveSyncPosition - bufferDelay;
-        if (video.currentTime < safeEdge - 3) {
-          goLiveBtn.style.display = 'block';
+        if (video.currentTime < safeEdge - 2) {
+          goLiveBtn.style.display = "block";
         } else {
-          goLiveBtn.style.display = 'none';
+          goLiveBtn.style.display = "none";
         }
       }
     }
 
-    goLiveBtn.addEventListener('click', () => {
+    goLiveBtn.addEventListener("click", () => {
       if (hls?.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - bufferDelay;
-        video.currentTime = safeEdge;
-        goLiveBtn.style.display = 'none';
-        video.play();
+        video.currentTime = hls.liveSyncPosition - bufferDelay;
+        goLiveBtn.style.display = "none";
       }
     });
 
@@ -166,22 +163,18 @@
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
+        badge.style.display = "block";
 
         const safeStart = hls.liveSyncPosition - bufferDelay;
         if (safeStart > 0) video.currentTime = safeStart;
 
-        Object.defineProperty(video, 'duration', {
+        Object.defineProperty(video, "duration", {
           get: () => Infinity,
           configurable: true
         });
 
-        video.play().then(() => {
-          badge.style.display = 'block';
-          video.style.display = 'block';
-        }).catch(() => {
-          hls.destroy();
+        video.play().catch(() => {
           streamLoaded = false;
-          setTimeout(checkStreamOnline, 5000);
         });
       });
 
@@ -189,32 +182,20 @@
         if (data.fatal) {
           streamLoaded = false;
           hls.destroy();
-          setTimeout(checkStreamOnline, 5000);
+          setTimeout(() => location.reload(), 5000);
         }
       });
 
-      video.addEventListener('timeupdate', () => {
+      video.addEventListener("timeupdate", () => {
         clampSeekBar();
         updateGoLiveButton();
       });
 
-      video.addEventListener('seeking', clampSeekBar);
+      video.addEventListener("seeking", clampSeekBar);
     }
 
-    async function checkStreamOnline() {
-      try {
-        const res = await fetch(videoSrc, { method: 'HEAD', cache: 'no-store' });
-        if (res.ok) {
-          initStream();
-        } else {
-          setTimeout(checkStreamOnline, 5000);
-        }
-      } catch {
-        setTimeout(checkStreamOnline, 5000);
-      }
-    }
-
-    checkStreamOnline();
+    // Begin loading stream
+    initStream();
   </script>
 </body>
 </html>
