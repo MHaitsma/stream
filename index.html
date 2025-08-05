@@ -148,14 +148,13 @@
     function showVideoPlayer() {
       offline.style.display = 'none';
       badge.style.display = 'block';
-      goLiveBtn.style.display = 'none';
       video.style.display = 'block';
     }
 
     function updateGoLiveButton() {
       if (hls?.liveSyncPosition) {
         const safeEdge = hls.liveSyncPosition - bufferDelay;
-        if (video.currentTime < safeEdge - 2) {
+        if (video.currentTime < safeEdge - 3) {
           goLiveBtn.style.display = 'block';
         } else {
           goLiveBtn.style.display = 'none';
@@ -168,6 +167,7 @@
         const safeEdge = hls.liveSyncPosition - bufferDelay;
         video.currentTime = safeEdge;
         goLiveBtn.style.display = 'none';
+        video.play();
       }
     });
 
@@ -210,6 +210,12 @@
           showOfflineMessage();
           setTimeout(checkStreamOnline, 5000);
         });
+      });
+
+      hls.on(Hls.Events.LEVEL_LOADED, (_, data) => {
+        if (data.details.live && !streamLoaded) {
+          initStream();
+        }
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
