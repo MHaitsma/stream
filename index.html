@@ -134,7 +134,7 @@
     const goLiveBtn = document.getElementById('goLiveButton');
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
-    const bufferDelay = 15; // 15 seconds behind live
+    const bufferDelay = 15;
     let hls;
     let streamLoaded = false;
 
@@ -148,6 +148,7 @@
     function showVideoPlayer() {
       offline.style.display = 'none';
       badge.style.display = 'block';
+      goLiveBtn.style.display = 'none';
       video.style.display = 'block';
     }
 
@@ -194,6 +195,7 @@
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         streamLoaded = true;
+
         const safeStart = hls.liveSyncPosition - bufferDelay;
         if (safeStart > 0) video.currentTime = safeStart;
 
@@ -202,8 +204,7 @@
           configurable: true
         });
 
-        video.play().then(() => showVideoPlayer())
-        .catch(() => {
+        video.play().then(() => showVideoPlayer()).catch(() => {
           hls.destroy();
           streamLoaded = false;
           showOfflineMessage();
@@ -243,7 +244,6 @@
       }
     }
 
-    // Kick off
     showOfflineMessage();
     checkStreamOnline();
   </script>
