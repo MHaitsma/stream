@@ -64,26 +64,6 @@
       z-index: 10;
     }
 
-    #goLiveButton {
-      position: absolute;
-      bottom: 16px;
-      left: 16px;
-      padding: 8px 16px;
-      background: #ff0000;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      display: none;
-      z-index: 10;
-    }
-
-    #goLiveButton:hover {
-      background: #e00000;
-    }
-
     @media (max-width: 768px) {
       .container {
         flex-direction: column;
@@ -105,7 +85,6 @@
   <div class="container">
     <div class="video-section">
       <div id="liveBadge">LIVE</div>
-      <button id="goLiveButton">Go to Live</button>
       <video id="video" controls muted autoplay playsinline></video>
     </div>
     <div class="chat-section">
@@ -116,7 +95,6 @@
   <script>
     const video = document.getElementById("video");
     const badge = document.getElementById("liveBadge");
-    const goLiveBtn = document.getElementById("goLiveButton");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
     const bufferDelay = 15;
 
@@ -126,24 +104,6 @@
     function showLiveBadge() {
       badge.style.display = "block";
     }
-
-    function updateGoLiveButton() {
-      if (hls?.liveSyncPosition) {
-        const safeEdge = hls.liveSyncPosition - bufferDelay;
-        if (video.currentTime < safeEdge - 2) {
-          goLiveBtn.style.display = "block";
-        } else {
-          goLiveBtn.style.display = "none";
-        }
-      }
-    }
-
-    goLiveBtn.addEventListener("click", () => {
-      if (hls?.liveSyncPosition) {
-        video.currentTime = hls.liveSyncPosition - bufferDelay;
-        goLiveBtn.style.display = "none";
-      }
-    });
 
     function clampSeekBar() {
       if (!video.seekable || video.seekable.length === 0 || !hls?.liveSyncPosition) return;
@@ -182,11 +142,7 @@
           }
         });
 
-        video.addEventListener("timeupdate", () => {
-          clampSeekBar();
-          updateGoLiveButton();
-        });
-
+        video.addEventListener("timeupdate", clampSeekBar);
         video.addEventListener("seeking", clampSeekBar);
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = videoSrc;
