@@ -97,10 +97,19 @@
     const badge = document.getElementById("liveBadge");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
-    let hls, streamLoaded = false;
+    let hls;
+    let streamLoaded = false;
 
     function showLiveBadge() {
       badge.style.display = "block";
+    }
+
+    function clampSeekBar() {
+      if (!video.seekable || video.seekable.length === 0) return;
+      const end = video.seekable.end(video.seekable.length - 1);
+      if (video.currentTime > end) {
+        video.currentTime = end;
+      }
     }
 
     function updateDuration() {
@@ -112,11 +121,9 @@
       });
     }
 
-    function clampSeekBar() {
-      if (!video.seekable || video.seekable.length === 0) return;
-      const end = video.seekable.end(video.seekable.length - 1);
-      if (video.currentTime > end) {
-        video.currentTime = end;
+    function resumeIfPaused() {
+      if (video.paused && video.readyState >= 2 && !video.seeking) {
+        video.play().catch(() => {});
       }
     }
 
@@ -129,9 +136,9 @@
           lowLatencyMode: true,
           liveSyncDuration: 3,
           liveMaxLatencyDuration: 5,
-          maxBufferLength: 60,
-          maxMaxBufferLength: 120,
-          backBufferLength: 14400 // 4 hours
+          maxBufferLength: 10,
+          maxMaxBufferLength: 20,
+          backBufferLength: 60
         });
 
         hls.loadSource(videoSrc);
@@ -140,21 +147,21 @@
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           streamLoaded = true;
           showLiveBadge();
-          video.play().catch(() => {});
+          video.play().catch(() => {
+            streamLoaded = false;
+          });
         });
 
-        hls.on(Hls.Events.FRAG_LOADED, updateDuration);
+        hls.on(Hls.Events.FRAG_LOADED, () => {
+          updateDuration();
+          resumeIfPaused();
+        });
 
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
+            streamLoaded = false;
             hls.destroy();
-            setTimeout(() => location.reload(), 3000);
-          }
-        });
-
-        hls.on(Hls.Events.BUFFER_APPENDED, () => {
-          if (video.paused && video.readyState >= 2) {
-            video.play().catch(() => {});
+            setTimeout(() => location.reload(), 5000);
           }
         });
 
@@ -164,6 +171,9 @@
         });
 
         video.addEventListener("seeking", clampSeekBar);
+
+        // Force resume every second
+        setInterval(resumeIfPaused, 1000);
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = videoSrc;
         video.addEventListener("loadedmetadata", () => {
