@@ -25,6 +25,7 @@
   <script>
     const video = document.getElementById("video");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
+    let safeLiveStart = 0;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -40,12 +41,26 @@
 
       hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
         if (data.details.live) {
-          const liveEdge = data.details.fragments[data.details.fragments.length - 1].start;
-          const safeStart = liveEdge - 10;
-          video.currentTime = safeStart > 0 ? safeStart : 0;
+          const fragments = data.details.fragments;
+          const liveEdge = fragments[fragments.length - 1].start;
+          safeLiveStart = liveEdge - 10;
+          video.currentTime = safeLiveStart > 0 ? safeLiveStart : 0;
         }
       });
 
+      // Override seeking — block if > currentTime
+      video.addEventListener("seeking", function () {
+        if (video.currentTime > safeLiveStart) {
+          video.currentTime = safeLiveStart;
+        }
+      });
+
+      // Override duration for UI to stop grey bar
+      Object.defineProperty(video, "duration", {
+        get: function () {
+          return safeLiveStart;
+        }
+      });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = videoSrc;
     }
