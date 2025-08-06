@@ -27,7 +27,8 @@
     const video = document.getElementById("video");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
-    let safeLiveStart = 0;
+    let liveCapTime = null;
+    let seekOverrideEnabled = true;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -35,6 +36,7 @@
         liveSyncDuration: 5,
         liveMaxLatencyDuration: 10,
         maxBufferLength: 30,
+        maxLiveSyncPlaybackRate: 1.0,
       });
 
       hls.loadSource(videoSrc);
@@ -43,23 +45,31 @@
       hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
         if (data.details.live) {
           const fragments = data.details.fragments;
-          const liveEdge = fragments[fragments.length - 1].start;
-          safeLiveStart = liveEdge - 10;
-          video.currentTime = safeLiveStart > 0 ? safeLiveStart : 0;
+          const lastFragment = fragments[fragments.length - 1];
+          const safeEdge = lastFragment.start - 10;
+
+          if (safeEdge > 0) {
+            video.currentTime = safeEdge;
+            liveCapTime = safeEdge;
+          }
         }
       });
 
-      // ⛔ Prevent forward seeking into unsafe zone
       video.addEventListener("seeking", () => {
-        if (video.currentTime > safeLiveStart) {
-          video.currentTime = safeLiveStart;
+        if (!seekOverrideEnabled || liveCapTime === null) return;
+
+        if (video.currentTime > liveCapTime) {
+          video.currentTime = liveCapTime;
         }
       });
 
-      // 🧠 FAKE duration to match current time and remove gray bar
-      Object.defineProperty(video, "duration", {
-        get: () => video.currentTime
+      video.addEventListener("loadedmetadata", () => {
+        // Optional: Seek again if necessary
+        if (liveCapTime !== null && video.currentTime > liveCapTime) {
+          video.currentTime = liveCapTime;
+        }
       });
+
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = videoSrc;
     }
