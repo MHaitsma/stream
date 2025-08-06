@@ -99,6 +99,7 @@
 
     let hls;
     let streamLoaded = false;
+    let manualPause = false;
 
     function showLiveBadge() {
       badge.style.display = "block";
@@ -122,7 +123,7 @@
     }
 
     function resumeIfPaused() {
-      if (video.paused && video.readyState >= 2 && !video.seeking) {
+      if (!manualPause && video.paused && video.readyState >= 2 && !video.seeking) {
         video.play().catch(() => {});
       }
     }
@@ -165,6 +166,9 @@
           }
         });
 
+        hls.on(Hls.Events.FRAG_BUFFERED, resumeIfPaused);
+        hls.on(Hls.Events.BUFFER_APPENDED, resumeIfPaused);
+
         video.addEventListener("timeupdate", () => {
           clampSeekBar();
           updateDuration();
@@ -172,8 +176,21 @@
 
         video.addEventListener("seeking", clampSeekBar);
 
-        // Force resume every second
-        setInterval(resumeIfPaused, 1000);
+        video.addEventListener("pause", () => {
+          manualPause = true;
+        });
+
+        video.addEventListener("play", () => {
+          manualPause = false;
+        });
+
+        // Rescue player every second
+        setInterval(() => {
+          if (!manualPause && video.readyState < 2) {
+            video.load(); // reloads if stalled
+          }
+          resumeIfPaused();
+        }, 1000);
       } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
         video.src = videoSrc;
         video.addEventListener("loadedmetadata", () => {
