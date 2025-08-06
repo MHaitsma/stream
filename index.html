@@ -26,7 +26,8 @@
   <script>
     const video = document.getElementById("video");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
-    let liveCapTime = null;
+
+    let maxSeekTime = null;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -34,25 +35,30 @@
         maxBufferLength: 10,
         liveSyncDuration: 3,
       });
+
       hls.loadSource(videoSrc);
       hls.attachMedia(video);
 
-      hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
+      hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
         if (data.details.live) {
-          const fragments = data.details.fragments;
-          const liveEdge = fragments[fragments.length - 1].start;
-          liveCapTime = liveEdge - 10;
-          if (liveCapTime > 0) {
-            video.currentTime = liveCapTime;
+          const lastFrag = data.details.fragments[data.details.fragments.length - 1];
+          maxSeekTime = lastFrag.start - 10;
+
+          if (maxSeekTime > 0) {
+            video.currentTime = maxSeekTime;
           }
         }
       });
 
-      video.addEventListener("seeking", function () {
-        if (liveCapTime !== null && video.currentTime > liveCapTime) {
-          video.currentTime = liveCapTime;
+      video.addEventListener("seeking", () => {
+        if (
+          maxSeekTime !== null &&
+          video.currentTime > maxSeekTime + 0.25 // allow slight drift
+        ) {
+          video.currentTime = maxSeekTime;
         }
       });
+
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = videoSrc;
     }
