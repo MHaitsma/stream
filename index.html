@@ -16,7 +16,7 @@
     video {
       width: 100%;
       height: 100%;
-      background-color: #000;
+      background: #000;
     }
   </style>
 </head>
@@ -24,41 +24,36 @@
   <video id="video" controls autoplay muted playsinline></video>
 
   <script>
-    const video = document.getElementById('video');
-    const videoSrc = 'https://stream.morganhaitsma.com/hls/stream.m3u8';
-
-    let safeLiveTime = null;
+    const video = document.getElementById("video");
+    const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
+    let liveCapTime = null;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
         lowLatencyMode: true,
-        liveSyncDuration: 5,
-        liveMaxLatencyDuration: 8,
-        maxBufferLength: 30,
+        maxBufferLength: 10,
+        liveSyncDuration: 3,
       });
-
       hls.loadSource(videoSrc);
       hls.attachMedia(video);
 
-      hls.on(Hls.Events.LEVEL_LOADED, (event, data) => {
+      hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
         if (data.details.live) {
           const fragments = data.details.fragments;
           const liveEdge = fragments[fragments.length - 1].start;
-          safeLiveTime = liveEdge - 10;
-
-          // Start playback at the safe point
-          video.currentTime = safeLiveTime;
+          liveCapTime = liveEdge - 10;
+          if (liveCapTime > 0) {
+            video.currentTime = liveCapTime;
+          }
         }
       });
 
-      // Prevent seeking forward into unsafe zone
-      video.addEventListener('seeking', () => {
-        if (safeLiveTime !== null && video.currentTime > safeLiveTime) {
-          video.currentTime = safeLiveTime;
+      video.addEventListener("seeking", function () {
+        if (liveCapTime !== null && video.currentTime > liveCapTime) {
+          video.currentTime = liveCapTime;
         }
       });
-
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = videoSrc;
     }
   </script>
