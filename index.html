@@ -33,9 +33,16 @@
         lowLatencyMode: true,
         maxBufferLength: 10,
         liveSyncDuration: 3,
+        startPosition: -1 // ⚡ fast-start at safe live point
       });
+
       hls.loadSource(videoSrc);
       hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        // Trigger play manually (some browsers don't auto-start reliably)
+        video.play();
+      });
 
       hls.on(Hls.Events.FRAG_BUFFERED, () => {
         if (!maxSafeTime || video.currentTime > maxSafeTime) {
