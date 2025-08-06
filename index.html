@@ -12,7 +12,6 @@
       background: #000;
       height: 100%;
     }
-
     video {
       width: 100%;
       height: 100%;
@@ -21,53 +20,39 @@
   </style>
 </head>
 <body>
-  <video id="video" controls autoplay muted playsinline preload="auto"></video>
+  <video id="video" controls autoplay muted playsinline preload="metadata"></video>
 
   <script>
     const video = document.getElementById("video");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
+
     let maxSafeTime = null;
-    let hasAttached = false;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
         lowLatencyMode: true,
         maxBufferLength: 10,
-        liveSyncDuration: 3,
-        startPosition: -1,
-        autoStartLoad: true,
+        liveSyncDuration: 3
       });
 
       hls.loadSource(videoSrc);
+      hls.attachMedia(video);
 
-      // Delay attaching until frag is ready to reduce flicker
-      hls.on(Hls.Events.FRAG_LOADED, () => {
-        if (!hasAttached) {
-          hls.attachMedia(video);
-          hasAttached = true;
-        }
-      });
-
+      // Wait for one full segment to load to reduce flicker
       hls.on(Hls.Events.FRAG_BUFFERED, () => {
         if (!maxSafeTime || video.currentTime > maxSafeTime) {
           maxSafeTime = video.currentTime;
         }
+
+        // Force play after buffer to avoid pause/flicker race
+        if (video.paused) {
+          video.play().catch(() => {});
+        }
       });
 
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        // Wait for attach to play
-        const playAfterAttach = () => {
-          if (hasAttached) {
-            video.play().catch(() => {}); // silently fail if autoplay blocked
-          } else {
-            setTimeout(playAfterAttach, 100);
-          }
-        };
-        playAfterAttach();
-      });
-
+      // Prevent forward-seeking into unstable area
       video.addEventListener("seeking", () => {
-        if (maxSafeTime && video.currentTime > maxSafeTime + 1) {
+        if (maxSafeTime && video.currentTime > maxSafeTime + 0.25) {
           video.currentTime = maxSafeTime;
         }
       });
