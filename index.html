@@ -11,34 +11,20 @@
       padding: 0;
       background: #000;
       height: 100%;
-      overflow: hidden;
     }
 
-    #video {
+    video {
       width: 100%;
-      height: calc(100% - 40px);
+      height: 100%;
       background: #000;
-    }
-
-    #controls {
-      height: 40px;
-      background: #111;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: monospace;
-      font-size: 16px;
     }
   </style>
 </head>
 <body>
-  <video id="video" autoplay muted playsinline></video>
-  <div id="controls"><span id="timeDisplay">Loading...</span></div>
+  <video id="video" controls autoplay muted playsinline></video>
 
   <script>
     const video = document.getElementById("video");
-    const timeDisplay = document.getElementById("timeDisplay");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     let safeLiveStart = 0;
@@ -49,7 +35,6 @@
         liveSyncDuration: 5,
         liveMaxLatencyDuration: 10,
         maxBufferLength: 30,
-        maxLiveSyncPlaybackRate: 1.0,
       });
 
       hls.loadSource(videoSrc);
@@ -64,26 +49,19 @@
         }
       });
 
-      video.addEventListener("timeupdate", () => {
-        const current = formatTime(video.currentTime);
-        timeDisplay.textContent = `${current} / ${current}`;
-      });
-
-      // Prevent seeking past current point
-      video.addEventListener("seeking", function () {
+      // ⛔ Prevent forward seeking into unsafe zone
+      video.addEventListener("seeking", () => {
         if (video.currentTime > safeLiveStart) {
           video.currentTime = safeLiveStart;
         }
       });
 
+      // 🧠 FAKE duration to match current time and remove gray bar
+      Object.defineProperty(video, "duration", {
+        get: () => video.currentTime
+      });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       video.src = videoSrc;
-    }
-
-    function formatTime(seconds) {
-      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-      const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-      return `${m}:${s}`;
     }
   </script>
 </body>
