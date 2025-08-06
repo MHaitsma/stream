@@ -96,6 +96,7 @@
     const video = document.getElementById("video");
     const badge = document.getElementById("liveBadge");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
+
     let hls, streamLoaded = false;
 
     function showLiveBadge() {
@@ -128,31 +129,32 @@
           lowLatencyMode: true,
           liveSyncDuration: 3,
           liveMaxLatencyDuration: 5,
-          maxBufferLength: 20,
-          maxMaxBufferLength: 60,
-          backBufferLength: 90
+          maxBufferLength: 60,
+          maxMaxBufferLength: 120,
+          backBufferLength: 14400 // 4 hours
         });
 
         hls.loadSource(videoSrc);
         hls.attachMedia(video);
 
-        hls.on(Hls.Events.FRAG_LOADED, updateDuration);
-
-        hls.on(Hls.Events.BUFFER_APPENDED, () => {
-          // Play only after buffering has started
-          if (!video.paused && video.readyState >= 2) return;
-          video.play().catch(() => {});
-        });
-
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           streamLoaded = true;
           showLiveBadge();
+          video.play().catch(() => {});
         });
+
+        hls.on(Hls.Events.FRAG_LOADED, updateDuration);
 
         hls.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
             hls.destroy();
             setTimeout(() => location.reload(), 3000);
+          }
+        });
+
+        hls.on(Hls.Events.BUFFER_APPENDED, () => {
+          if (video.paused && video.readyState >= 2) {
+            video.play().catch(() => {});
           }
         });
 
