@@ -11,66 +11,39 @@
       padding: 0;
       background: #000;
       height: 100%;
-      display: flex;
-      flex-direction: column;
     }
-
     video {
       width: 100%;
-      flex: 1;
+      height: 100%;
       background: #000;
-    }
-
-    #goLiveBtn {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      z-index: 10;
-      padding: 8px 14px;
-      background: red;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      font-weight: bold;
-      font-family: sans-serif;
-      cursor: pointer;
-      display: none;
     }
   </style>
 </head>
 <body>
   <video id="video" controls autoplay muted playsinline></video>
-  <button id="goLiveBtn">GO LIVE</button>
 
   <script>
     const video = document.getElementById("video");
-    const goLiveBtn = document.getElementById("goLiveBtn");
     const videoSrc = "https://stream.morganhaitsma.com/hls/stream.m3u8";
 
     if (Hls.isSupported()) {
       const hls = new Hls({
         lowLatencyMode: true,
         liveSyncDuration: 5,
+        liveMaxLatencyDuration: 10,
         maxBufferLength: 30,
-        liveMaxLatencyDuration: 8
+        maxLiveSyncPlaybackRate: 1.0,
       });
 
       hls.loadSource(videoSrc);
       hls.attachMedia(video);
 
-      // Monitor for drift from live edge
-      setInterval(() => {
-        const latency = hls.latency ?? 0;
-        if (latency > 8) {
-          goLiveBtn.style.display = "block";
-        } else {
-          goLiveBtn.style.display = "none";
+      hls.on(Hls.Events.LEVEL_LOADED, function (event, data) {
+        if (data.details.live) {
+          const liveEdge = data.details.fragments[data.details.fragments.length - 1].start;
+          const safeStart = liveEdge - 10;
+          video.currentTime = safeStart > 0 ? safeStart : 0;
         }
-      }, 1000);
-
-      // Jump to live when requested
-      goLiveBtn.addEventListener("click", () => {
-        hls.seekToLivePosition();
       });
 
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
